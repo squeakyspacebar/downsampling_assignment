@@ -1,88 +1,82 @@
 #include <cstdint>
-#include <cmath>
 #include <future>
 #include <iostream>
 #include <map>
+#include <random>
 #include <thread>
 #include <queue>
 #include <andres/marray.hxx>
-#include <zi/concurrency/concurrency.hpp>
+#include <thread_pool.hpp>
 
-const unsigned int MAX_THREADS = std::thread::hardware_concurrency() + 1;
+const unsigned int MAX_WORK_THREADS = std::thread::hardware_concurrency();
 const int DIM = 3;
 typedef andres::Marray<int> img_array;
-typedef std::packaged_task<int(img_array, int, int)> fm_task;
 
-class FindMode {
-    FindMode() {}
+std::size_t pow (const std::size_t base, const std::size_t exp);
+std::size_t log2 (std::size_t v);
+std::size_t find_min_l(const img_array & img);
+img_array generate_image();
+void process_image(const img_array & img, const std::size_t l);
+int find_mode(const img_array & img, const std::size_t l,
+    const std::size_t starting_index);
 
-    int operator() (const img_array & img, const int dim_size, const int starting_index) {
-        std::cout << "find_mode() entered" << std::endl;
+int find_mode(
+        const img_array & img,
+        const std::size_t l,
+        const std::size_t starting_index) {
 
-        //const size_t * shape = img.shape();
-        int positions[DIM] = { 0 };
-        int place = 0;
-        int index = starting_index;
-        int max = dim_size;
-        bool overflow = false;
+    std::size_t num_dims = img.dimension();
+    std::vector<size_t> positions(num_dims);
+    std::size_t place = 0;
+    std::size_t index = starting_index;
+    std::size_t max = pow(2, l);
+    bool overflow = false;
 
-        // Bookkeeping for determining mode of generated image.
-        std::map<int, int> mode_map;
-        mode_map.insert(std::pair<int, int>(-1, -1));
+    // Bookkeeping for determining mode of generated image.
+    std::map<int, int> mode_map;
+    mode_map.insert(std::pair<int, int>(-1, -1));
 
-        while (!overflow) {
-            int key = img(index);
+    while (!overflow) {
+        int key = img(index);
 
-            // Keep a count of the values encountered to determine mode.
-            if (mode_map.count(key) > 0) {
-                mode_map[key]++;
-            } else {
-                mode_map.insert(std::pair<int, int>(key, 1));
-            }
-
-            // Update which key represents the mode.
-            if (mode_map[key] > mode_map[mode_map[-1]]) {
-                mode_map[-1] = key;
-            }
-
-            // Update positional counter.
-            positions[0]++;
-            while (positions[place] == max) {
-                if (place == DIM - 1) {
-                    overflow = true;
-                }
-
-                positions[place] = 0;
-                // Carry the one.
-                place++;
-                positions[place]++;
-            }
-
-            // Calculate the proper index.
-            index = positions[0];
-            for (int i = 1; i < DIM; i++) {
-                index += positions[i] * img.shape(i - 1);
-            }
-
-            place = 0;
+        // Keep a count of the values encountered to determine mode.
+        if (mode_map.count(key) > 0) {
+            mode_map[key]++;
+        } else {
+            mode_map.insert(std::pair<int, int>(key, 1));
         }
 
-        // Output diagnostic information.
-        std::cout << "mode of view is " << mode_map[-1] << " with " <<
-            mode_map[mode_map[-1]] << " instances" << std::endl;
-        // Output each number encountered with its frequency.
-        for (const auto &kv : mode_map) {
-            if (kv.first < 0) {
-                continue;
-            }
-            std::cout << kv.first << ": " << kv.second << " instance(s)" << std::endl;
+        // Update which key represents the mode.
+        if (mode_map[key] > mode_map[mode_map[-1]]) {
+            mode_map[-1] = key;
         }
 
-        std::cout << "find_mode() exited" << std::endl;
+        // Update positional counter.
+        positions[0]++;
+        while (positions[place] == max) {
+            if (place == num_dims - 1) {
+                overflow = true;
+                break;
+            }
 
-        return mode_map[-1];
+            // Carry the one.
+            positions[place] = 0;
+            place++;
+            positions[place]++;
+        }
+
+        // Calculate the proper index.
+        index = positions[0];
+        for (std::size_t i = 1; i < num_dims; i++) {
+            index += positions[i] * img.shape(i - 1);
+        }
+
+        place = 0;
     }
-};
+
+    return mode_map[-1];
+}
+
 
 img_array generate_image() {
     std::cout << "generate_image() entered" << std::endl;
@@ -92,27 +86,27 @@ img_array generate_image() {
     std::minstd_rand gen(rd());
 
     // Generate randomized dimensionality for the image.
-    std::uniform_int_distribution<std::size_t> dim_size_dist(1, 10);
+    std::uniform_int_distribution<int> dim_size_dist(1, 8);
     std::size_t * shape = new std::size_t[DIM];
-    for (int i = 0; i < DIM; i++) {
+    for (std::size_t i = 0; i < DIM; i++) {
         std::size_t dim_size = dim_size_dist(gen);
-        shape[i] = std::pow(2, dim_size);
+        shape[i] = pow(2, dim_size);
         std::cout << "Dim(" << i + 1 << "): " << shape[i] << std::endl;
     }
 
     // Initialize blank image.
     img_array img(shape, shape + DIM);
-    delete shape;
+    delete [] shape;
 
     // Bookkeeping for determining mode of generated image.
     std::map<int, int> mode_map;
     mode_map.insert(std::pair<int, int>(-1, -1));
 
     // Generates random values for each element of the image.
-    std::uniform_int_distribution<int> ran_dist(0, 2);
+    std::uniform_int_distribution<int> val_dist(0, 2);
     std::size_t img_size = img.size();
     for (std::size_t i = 0; i < img_size; i++) {
-        int key = ran_dist(gen);
+        int key = val_dist(gen);
         img(i) = key;
 
         // Keeps a count of the values encountered to determine mode.
@@ -144,20 +138,20 @@ img_array generate_image() {
     return img;
 }
 
-void process_image(const img_array & img, int l) {
+void process_image(const img_array & img, const std::size_t l) {
     std::cout << "process_image() entered" << std::endl;
 
-    int dim_size = std::pow(2, l);
+    std::size_t num_dims = img.dimension();
+    std::size_t dim_size = pow(2, l);
     std::cout << "dim_size: " << dim_size << std::endl;
 
     // Determine the starting index for each processing window.
-    std::vector<int> starting_indices;
+    std::vector<std::size_t> starting_indices;
 
-    //const size_t * shape = img.shape();
-    std::size_t positions[DIM] = { 0 };
-    int place = 0;
-    int index = 0;
-    int stride = dim_size;
+    std::vector<size_t> positions(num_dims, 0);
+    std::size_t place = 0;
+    std::size_t index = 0;
+    std::size_t stride = dim_size;
     bool overflow = false;
 
     std::cout << "Stride: " << stride << std::endl;
@@ -180,7 +174,7 @@ void process_image(const img_array & img, int l) {
 
         // Calculate the proper index.
         index = positions[0];
-        for (int i = 1; i < DIM; i++) {
+        for (std::size_t i = 1; i < num_dims; i++) {
             index += positions[i] * img.shape(i - 1);
         }
 
@@ -189,47 +183,52 @@ void process_image(const img_array & img, int l) {
 
     // Calculate shape of downsampled image.
     std::cout << "Reduced shape for l(" << l << "):" << std::endl;
-    std::vector<int> reduced_dims;
-    for (int i = 0; i < DIM; i++) {
-        int reduced_dim_size = img.shape(i) / dim_size;
+    std::vector<std::size_t> reduced_dims;
+    for (std::size_t i = 0; i < num_dims; i++) {
+        std::size_t reduced_dim_size = img.shape(i) / dim_size;
         if (reduced_dim_size > 1) {
             reduced_dims.push_back(reduced_dim_size);
         }
     }
 
-    const std::size_t num_reduced_dims = reduced_dims.size();
-    std::size_t * reduced_shape = new std::size_t[num_reduced_dims];
+    std::size_t num_reduced_dims = reduced_dims.size();
+    std::size_t * reduced_shape = new size_t[num_reduced_dims];
     for (std::size_t i = 0; i < num_reduced_dims; i++) {
         reduced_shape[i] = reduced_dims[i];
     }
     img_array reduced_img(reduced_shape, reduced_shape + num_reduced_dims);
+    delete [] reduced_shape;
 
     for (std::size_t i = 0; i < num_reduced_dims; i++) {
         std::cout << "Dim(" << reduced_img.shape(i) << ")" << std::endl;
     }
 
-    /*std::queue<fm_task> tasks;
+    // Initialize task manager.
+    ThreadPool tm(MAX_WORK_THREADS);
+
+    std::cout << "Number of tasks: " << starting_indices.size() << std::endl;
     std::vector<std::future<int>> futures;
-
     for (auto & i : starting_indices) {
-        std::cout << i << std::endl;
-        fm_task task(findmode);
-        tasks.push(task);
-        futures.push_back(task.get_future());
+        futures.push_back(tm.add_task(find_mode, std::ref(img), l, i));
     }
-
-    for (auto & task : tasks) {
-        std::thread(std::move(task), )
-    }*/
+    tm.stop();
 
     std::cout << "process_image() exited" << std::endl;
 }
 
-size_t log2 (size_t v) {
+std::size_t pow(const std::size_t base, const std::size_t exp) {
+    std::size_t result = 1;
+    for (std::size_t i = 1; i <= exp; i++) {
+        result *= base;
+    }
+    return result;
+}
+
+std::size_t log2(std::size_t v) {
     if (v == 0) return SIZE_MAX;
     if (v == 1) return 0;
 
-    size_t l = 0;
+    std::size_t l = 0;
     while (v > 1) {
         v >>= 1;
         l++;
@@ -238,12 +237,12 @@ size_t log2 (size_t v) {
     return l;
 }
 
-size_t find_min_l(const img_array & img) {
+std::size_t find_min_l(const img_array & img) {
     std::size_t min_l = SIZE_MAX;
 
     std::size_t num_dims = img.dimension();
     for (std::size_t i = 0; i < num_dims; i++) {
-        size_t dim = img.shape(i);
+        std::size_t dim = img.shape(i);
         if (dim < min_l) {
             min_l = log2(dim);
         }
@@ -253,16 +252,14 @@ size_t find_min_l(const img_array & img) {
 }
 
 int main() {
-    std::cout << "MAX_THREADS(" << MAX_THREADS << ")" << std::endl;
+    std::cout << "MAX_WORK_THREADS(" << MAX_WORK_THREADS << ")" << std::endl;
 
     img_array img = generate_image();
 
     std::size_t min_l = find_min_l(img);
     std::cout << "Minimum l: " << min_l << std::endl;
 
-    for (std::size_t l = 1; l <= min_l; l++) {
-        process_image(img, l);
-    }
+    process_image(img, min_l);
 
     return 0;
 }
