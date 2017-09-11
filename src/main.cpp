@@ -6,6 +6,7 @@
 #include <thread>
 #include <queue>
 #include <andres/marray.hxx>
+#include <boost/thread/future.hpp>
 #include <eye/thread_pool.hpp>
 #include <eye/utility.hpp>
 
@@ -203,23 +204,18 @@ img_array process_image(const img_array & img, const std::size_t l) {
 
     std::cout << "Number of tasks: " << starting_indices.size() << std::endl;
 
-    std::vector<std::future<int>> modes;
+    std::vector<boost::unique_future<int>> modes;
 
     // Initialize task manager.
     eye::ThreadPool tm(MAX_WORK_THREADS);
     for (auto & i : starting_indices) {
-        modes.push_back(tm.add_task(find_mode, std::ref(img), l, i));
+        modes.push_back(tm.add_task(find_mode, boost::ref(img), l, i));
     }
     tm.stop();
 
     for (auto & f : modes) {
         std::cout << "Future result: " << f.get() << std::endl;
     }
-
-    /*for (const auto & kv : mode_results) {
-        auto value = std::move(kv.second);
-        std::cout << "Mode for window at (" << kv.first << "): " << value.get() << std::endl;
-    }*/
 
     std::cout << "process_image() exited" << std::endl;
 
