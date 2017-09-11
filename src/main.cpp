@@ -6,19 +6,18 @@
 #include <thread>
 #include <queue>
 #include <andres/marray.hxx>
-#include <thread_pool.hpp>
+#include <eye/thread_pool.hpp>
+#include <eye/utility.hpp>
 
 const unsigned int MAX_WORK_THREADS = std::thread::hardware_concurrency();
 const int DIM = 3;
 typedef andres::Marray<int> img_array;
 
-std::size_t pow (const std::size_t base, const std::size_t exp);
-std::size_t log2 (std::size_t v);
-std::size_t find_min_l(const img_array & img);
 img_array generate_image();
-void process_image(const img_array & img, const std::size_t l);
+img_array process_image(const img_array & img, const std::size_t l);
 int find_mode(const img_array & img, const std::size_t l,
     const std::size_t starting_index);
+std::size_t find_min_l(const img_array & img);
 
 int find_mode(
         const img_array & img,
@@ -29,7 +28,7 @@ int find_mode(
     std::vector<size_t> positions(num_dims);
     std::size_t place = 0;
     std::size_t index = starting_index;
-    std::size_t max = pow(2, l);
+    std::size_t max = eye::pow(2, l);
     bool overflow = false;
 
     // Bookkeeping for determining mode of generated image.
@@ -77,20 +76,19 @@ int find_mode(
     return mode_map[-1];
 }
 
-
 img_array generate_image() {
     std::cout << "generate_image() entered" << std::endl;
 
     // Initialize random number generation.
-    std::random_device rd;
-    std::minstd_rand gen(rd());
+    std::random_device device;
+    std::minstd_rand generator(device());
 
     // Generate randomized dimensionality for the image.
     std::uniform_int_distribution<int> dim_size_dist(1, 8);
     std::size_t * shape = new std::size_t[DIM];
     for (std::size_t i = 0; i < DIM; i++) {
-        std::size_t dim_size = dim_size_dist(gen);
-        shape[i] = pow(2, dim_size);
+        std::size_t dim_size = dim_size_dist(generator);
+        shape[i] = eye::pow(2, dim_size);
         std::cout << "Dim(" << i + 1 << "): " << shape[i] << std::endl;
     }
 
@@ -106,7 +104,7 @@ img_array generate_image() {
     std::uniform_int_distribution<int> val_dist(0, 2);
     std::size_t img_size = img.size();
     for (std::size_t i = 0; i < img_size; i++) {
-        int key = val_dist(gen);
+        int key = val_dist(generator);
         img(i) = key;
 
         // Keeps a count of the values encountered to determine mode.
@@ -126,7 +124,7 @@ img_array generate_image() {
     std::cout << "Mode of generated image is " << mode_map[-1] << " with " <<
         mode_map[mode_map[-1]] << " instances out of " << img.size() << std::endl;
     // Output each number encountered with its frequency.
-    for (const auto &kv : mode_map) {
+    for (const auto & kv : mode_map) {
         if (kv.first < 0) {
             continue;
         }
@@ -138,11 +136,11 @@ img_array generate_image() {
     return img;
 }
 
-void process_image(const img_array & img, const std::size_t l) {
+img_array process_image(const img_array & img, const std::size_t l) {
     std::cout << "process_image() entered" << std::endl;
 
     std::size_t num_dims = img.dimension();
-    std::size_t dim_size = pow(2, l);
+    std::size_t dim_size = eye::pow(2, l);
     std::cout << "dim_size: " << dim_size << std::endl;
 
     // Determine the starting index for each processing window.
@@ -203,38 +201,29 @@ void process_image(const img_array & img, const std::size_t l) {
         std::cout << "Dim(" << reduced_img.shape(i) << ")" << std::endl;
     }
 
-    // Initialize task manager.
-    ThreadPool tm(MAX_WORK_THREADS);
-
     std::cout << "Number of tasks: " << starting_indices.size() << std::endl;
-    std::vector<std::future<int>> futures;
+
+    std::vector<std::future<int>> modes;
+
+    // Initialize task manager.
+    eye::ThreadPool tm(MAX_WORK_THREADS);
     for (auto & i : starting_indices) {
-        futures.push_back(tm.add_task(find_mode, std::ref(img), l, i));
+        modes.push_back(tm.add_task(find_mode, std::ref(img), l, i));
     }
     tm.stop();
 
+    for (auto & f : modes) {
+        std::cout << "Future result: " << f.get() << std::endl;
+    }
+
+    /*for (const auto & kv : mode_results) {
+        auto value = std::move(kv.second);
+        std::cout << "Mode for window at (" << kv.first << "): " << value.get() << std::endl;
+    }*/
+
     std::cout << "process_image() exited" << std::endl;
-}
 
-std::size_t pow(const std::size_t base, const std::size_t exp) {
-    std::size_t result = 1;
-    for (std::size_t i = 1; i <= exp; i++) {
-        result *= base;
-    }
-    return result;
-}
-
-std::size_t log2(std::size_t v) {
-    if (v == 0) return SIZE_MAX;
-    if (v == 1) return 0;
-
-    std::size_t l = 0;
-    while (v > 1) {
-        v >>= 1;
-        l++;
-    }
-
-    return l;
+    return reduced_img;
 }
 
 std::size_t find_min_l(const img_array & img) {
@@ -242,9 +231,9 @@ std::size_t find_min_l(const img_array & img) {
 
     std::size_t num_dims = img.dimension();
     for (std::size_t i = 0; i < num_dims; i++) {
-        std::size_t dim = img.shape(i);
+        std::size_t dim = eye::log2(img.shape(i));
         if (dim < min_l) {
-            min_l = log2(dim);
+            min_l = dim;
         }
     }
 
