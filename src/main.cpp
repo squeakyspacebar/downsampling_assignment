@@ -1,8 +1,12 @@
+#define BOOST_THREAD_PROVIDES_FUTURE
+#define BOOST_THREAD_PROVIDES_FUTURE_CONTINUATION
+
 #include <cstdint>
-#include <future>
 #include <iostream>
+#include <fstream>
 #include <map>
 #include <random>
+#include <string>
 #include <thread>
 #include <queue>
 #include <andres/marray.hxx>
@@ -18,19 +22,21 @@ img_array generate_image();
 img_array process_image(const img_array & img, const std::size_t l);
 int find_mode(const img_array & img, const std::size_t l,
     const std::size_t starting_index);
+void place_mode(img_array & img, const int index, const int mode);
 std::size_t find_min_l(const img_array & img);
+
+boost::mutex img_write_mutex;
 
 int find_mode(
         const img_array & img,
         const std::size_t l,
         const std::size_t starting_index) {
-
     std::size_t num_dims = img.dimension();
-    std::vector<size_t> positions(num_dims);
+    std::vector<size_t> positions(num_dims, 0);
     std::size_t place = 0;
     std::size_t index = starting_index;
-    std::size_t max = eye::pow(2, l);
     bool overflow = false;
+    std::size_t max = eye::pow(2, l);
 
     // Bookkeeping for determining mode of generated image.
     std::map<int, int> mode_map;
@@ -204,22 +210,40 @@ img_array process_image(const img_array & img, const std::size_t l) {
 
     std::cout << "Number of tasks: " << starting_indices.size() << std::endl;
 
-    std::vector<boost::unique_future<int>> modes;
+    std::vector<boost::future<int>> modes;
 
     // Initialize task manager.
     eye::ThreadPool tm(MAX_WORK_THREADS);
-    for (auto & i : starting_indices) {
-        modes.push_back(tm.add_task(find_mode, boost::ref(img), l, i));
-    }
-    tm.stop();
 
-    for (auto & f : modes) {
-        std::cout << "Future result: " << f.get() << std::endl;
+    std::vector<boost::future<void>> futures;
+
+    for (auto & i : starting_indices) {
+        // Get mode of image section.
+        auto f1 = tm.add_task(find_mode, boost::ref(img), l, i);
+
+        // Define future continuations to write results to downsampled image
+        // asynchronously.
+        auto f2 = f1.then(boost::launch::deferred, [&](boost::future<int> f) {
+            int mode = f.get();
+            tm.add_task(place_mode, boost::ref(reduced_img), i, mode);
+        });
+
+        futures.push_back(std::move(f2));
     }
+
+    // Wait for all futures and tasks to return.
+    boost::wait_for_all(futures.begin(), futures.end());
+    tm.stop();
 
     std::cout << "process_image() exited" << std::endl;
 
     return reduced_img;
+}
+
+
+void place_mode(img_array & img, const int index, const int mode) {
+    boost::lock_guard<boost::mutex> img_write_guard(img_write_mutex);
+    img(index) = mode;
 }
 
 std::size_t find_min_l(const img_array & img) {
@@ -236,6 +260,52 @@ std::size_t find_min_l(const img_array & img) {
     return min_l;
 }
 
+void write_img_to_file(const img_array & img, const std::string & filename) {
+    std::size_t num_dims = img.dimension();
+    std::ofstream outfile;
+    outfile.open(filename);
+
+    std::vector<size_t> positions(num_dims, 0);
+    std::size_t place = 0;
+    std::size_t index = 0;
+    bool overflow = false;
+    while (!overflow) {
+        // Print value position.
+        outfile << "<";
+        for (std::size_t i = 0; i < num_dims; i++) {
+            outfile << positions[i];
+            if (i < (img.shape(i) - 1)) {
+                outfile << ",";
+            }
+        }
+        outfile << ">,";
+        // Print value at position.
+        outfile << img(index) << std::endl;
+
+        positions[0]++;
+        while (positions[place] == img.shape(place)) {
+            if (place == num_dims - 1) {
+                overflow = true;
+                break;
+            }
+
+            positions[place] = 0;
+            place++;
+            positions[place]++;
+        }
+
+        index = positions[0];
+        for (std::size_t i = 1; i < num_dims; i++) {
+            index += positions[i] * img.shape(i - 1);
+        }
+
+        place = 0;
+    }
+
+    outfile.close();
+    std::cout << "Wrote output to " << filename << std::endl;
+}
+
 int main() {
     std::cout << "MAX_WORK_THREADS(" << MAX_WORK_THREADS << ")" << std::endl;
 
@@ -244,7 +314,10 @@ int main() {
     std::size_t min_l = find_min_l(img);
     std::cout << "Minimum l: " << min_l << std::endl;
 
-    process_image(img, min_l);
+    img_array ds_img = process_image(img, min_l);
+
+    std::string filename = "ds_img_l" + std::to_string(min_l) + ".csv";
+    write_img_to_file(ds_img, filename);
 
     return 0;
 }
