@@ -10,6 +10,10 @@
 #include <boost/thread/future.hpp>
 
 namespace eye {
+    /**
+     * A pair data type to link promises to their corresponding tasks.
+     * Created to allow return type deduction for task-running logic.
+     */
     template <typename ReturnType>
     struct PromiseTask {
         using promise_t = boost::promise<ReturnType>;
@@ -27,11 +31,7 @@ namespace eye {
     class ThreadPool {
         public:
 
-        int task_counter;
-
         ThreadPool(int max_threads) : shutdown_signal(false) {
-            this->task_counter = 0;
-
             // Spin up worker threads.
             this->threads.reserve(max_threads);
             for (int i = 0; i < max_threads; i++) {
@@ -57,15 +57,13 @@ namespace eye {
             for (auto & thread : this->threads) {
                 thread.join();
             }
-
-            std::cout << this->task_counter << " tasks executed." << std::endl;
         }
 
         template<typename F, typename... Args>
         auto add_task(F function, Args... args) -> boost::future<decltype(function(args...))> {
             boost::unique_lock<boost::mutex> guard (this->lock);
 
-            // Determine return type of task.
+            // Determine return type of function.
             using ReturnType = decltype(function(args...));
 
             // Associate a promise to capture the return value of a task.
@@ -81,8 +79,8 @@ namespace eye {
 
             // Queue a task and wake a thread.
             this->tasks.push([this, task_data] {
-                // Needs to be moved because it holds a promise.
-                this->run_task<ReturnType>(boost::move(task_data));
+                // task_data needs to be moved because it contains a promise.
+                this->run_task(boost::move(task_data));
             });
             this->resume.notify_one();
 
@@ -101,7 +99,7 @@ namespace eye {
             boost::function<void(void)> task;
 
             while (1) {
-                {
+                { // Mutex-locked scope.
                     boost::unique_lock<boost::mutex> guard (this->lock);
 
                     while (!this->shutdown_signal && this->tasks.empty()) {
@@ -116,7 +114,6 @@ namespace eye {
                     // Pop task from task queue.
                     task = this->tasks.front();
                     this->tasks.pop();
-                    this->task_counter++;
                 }
 
                 // Run task without locking.
@@ -136,7 +133,8 @@ namespace eye {
         }
     };
 
-    // Template specialization for tasks with void return types.
+    // Template specialization for tasks with void return types, since we can't
+    // set the promise to the tasks's return value.
     template<>
     void inline ThreadPool::run_task<void>(boost::shared_ptr<PromiseTask<void>> task_data) {
         try {
