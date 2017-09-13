@@ -9,7 +9,9 @@
 #include <eye/image.hpp>
 #include <eye/utility.hpp>
 
+const std::size_t IMAGE_DIMS = 3;
 typedef andres::Marray<int> image_array;
+typedef std::shared_ptr<eye::Image> img_ptr;
 using namespace std::chrono;
 
 int main() {
@@ -17,15 +19,15 @@ int main() {
 
     std::string timestamp = eye::get_timestamp();
 
-    std::shared_ptr<eye::Image> img = eye::generate_randomized_image(eye::DIM);
+    img_ptr img = eye::generate_randomized_image(IMAGE_DIMS);
 
     std::size_t min_l = eye::find_min_l(img);
 
     for (std::size_t i = 1; i <= min_l; i++) {
         std::cout << "Current downsampling level (" << i << ")" << std::endl;
-        std::shared_ptr<eye::Image> ds_img = eye::process_image(img, i);
+        img_ptr ds_img = eye::process_image(img, i);
 
-        std::string filename = timestamp + "_ds_" + std::to_string(eye::DIM) +
+        std::string filename = timestamp + "_ds_" + std::to_string(IMAGE_DIMS) +
             "d_img_l" + std::to_string(i) + ".csv";
         eye::write_to_file(ds_img, filename);
     }
