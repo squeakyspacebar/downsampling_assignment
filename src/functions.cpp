@@ -1,6 +1,7 @@
 #define BOOST_THREAD_PROVIDES_FUTURE
 #define BOOST_THREAD_PROVIDES_FUTURE_CONTINUATION
 
+#include <chrono>
 #include <iostream>
 #include <fstream>
 #include <functional>
@@ -80,6 +81,27 @@ namespace eye {
 
         return std::make_shared<Image>(Image(img_array));
     }
+
+    void fill_image_array(const std::shared_ptr<Image> img) {
+        std::cout << "fill_image() entered" << std::endl;
+
+        // Initialize random number generation.
+        //std::random_device device;
+        long int seed = std::chrono::high_resolution_clock::now()
+            .time_since_epoch().count();
+        std::minstd_rand generator(seed);
+
+        // Generates random values for each element of the image.
+        std::uniform_int_distribution<int> value_dist(0, 2);
+        std::size_t img_elements = img->img_array.size();
+        for (std::size_t i = 0; i < img_elements; i++) {
+            int key = value_dist(generator);
+            img->img_array(i) = key;
+        }
+
+        std::cout << "fill_image() exited" << std::endl;
+    }
+
 
     std::size_t find_min_l(const std::shared_ptr<Image> img) {
         std::size_t min_l = SIZE_MAX;
