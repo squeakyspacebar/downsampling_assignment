@@ -9,8 +9,7 @@ typedef andres::Marray<int> image_array;
 
 namespace eye {
     /**
-     * Multidimensional array container to make it easier to pass associated
-     * calculations around.
+     * Convenience wrapper for multiarrays.
      */
     class Image {
         public:
