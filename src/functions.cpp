@@ -22,7 +22,7 @@
 namespace eye {
     std::mutex write_mutex;
 
-    std::shared_ptr<Image> generate_randomized_image() {
+    std::shared_ptr<Image> generate_randomized_image(const std::size_t dims) {
         std::cout << "generate_randomized_image() entered" << std::endl;
 
         // Initialize random number generation.
@@ -31,15 +31,18 @@ namespace eye {
 
         // Generate randomized dimensionality for the image.
         std::uniform_int_distribution<int> pow_dist(1, 8);
-        std::size_t * shape = new std::size_t[DIM];
-        for (std::size_t i = 0; i < DIM; i++) {
+        std::size_t * shape = new std::size_t[dims];
+        for (std::size_t i = 0; i < dims; i++) {
             std::size_t dim_size = eye::pow(2, pow_dist(generator));
             shape[i] = dim_size;
-            std::cout << "Dim(" << i + 1 << "): " << shape[i] << std::endl;
+            std::cout << shape[i];
+            if (i < (dims - 1)) {
+                std::cout << ",";
+            }
         }
 
         // Initialize blank image.
-        image_array img_array(shape, shape + DIM);
+        image_array img_array(shape, shape + dims);
         delete [] shape;
 
         // Bookkeeping for determining mode of generated image.

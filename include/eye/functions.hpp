@@ -9,7 +9,7 @@
 typedef andres::Marray<int> image_array;
 
 namespace eye {
-    std::shared_ptr<Image> generate_randomized_image();
+    std::shared_ptr<Image> generate_randomized_image(const std::size_t dims);
     void fill_image_array(const std::shared_ptr<Image> img);
     std::size_t find_min_l(const std::shared_ptr<Image> img);
     std::shared_ptr<Image> process_image(const std::shared_ptr<Image> img,
