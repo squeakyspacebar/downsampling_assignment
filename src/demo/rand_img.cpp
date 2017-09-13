@@ -1,17 +1,13 @@
 #include <chrono>
 #include <iostream>
-#include <memory>
 #include <string>
-#include <andres/marray.hxx>
 #include <eye/constants.hpp>
 #include <eye/functions.hpp>
 #include <eye/math.hpp>
 #include <eye/image.hpp>
 #include <eye/utility.hpp>
 
-const std::size_t IMAGE_DIMS = 3;
-typedef andres::Marray<int> image_array;
-typedef std::shared_ptr<eye::Image> img_ptr;
+const std::size_t IMAGE_DIMS = 2;
 using namespace std::chrono;
 
 int main() {
@@ -19,13 +15,17 @@ int main() {
 
     std::string timestamp = eye::get_timestamp();
 
-    img_ptr img = eye::generate_randomized_image(IMAGE_DIMS);
+    // Generate an image with randomized dimensions and values.
+    eye::Image img(eye::generate_randomized_image(IMAGE_DIMS));
 
+    // Find the power of 2 of the smallest dimension of the image.
     std::size_t min_l = eye::find_min_l(img);
 
+    // For each power of 2 from 1 to min_l, calculate the downsampled image and
+    // write it to file.
     for (std::size_t i = 1; i <= min_l; i++) {
         std::cout << "Current downsampling level (" << i << ")" << std::endl;
-        img_ptr ds_img = eye::process_image(img, i);
+        eye::Image ds_img(eye::process_image(img, i));
 
         std::string filename = timestamp + "_ds_" + std::to_string(IMAGE_DIMS) +
             "d_img_l" + std::to_string(i) + ".csv";
@@ -33,9 +33,7 @@ int main() {
     }
 
     high_resolution_clock::time_point stop = high_resolution_clock::now();
-
     auto elapsed = duration_cast<milliseconds>(stop - start).count();
-
     std::cout << "TOTAL ELAPSED TIME: " << elapsed << "ms" << std::endl;
 
     return 0;
