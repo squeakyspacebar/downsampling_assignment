@@ -97,6 +97,7 @@ namespace eye {
             const std::size_t l) {
         std::size_t dim_size = eye::pow(2, l);
 
+        // Define logic to be run inside polytopic loop.
         std::vector<std::size_t> starting_indices;
         auto f = [&](const std::vector<std::size_t> & positions,
             const std::size_t index) -> void {
@@ -175,6 +176,7 @@ namespace eye {
         std::map<int, int> mode_map;
         mode_map.insert(std::pair<int, int>(-1, -1));
 
+        // Define logic to be run inside polytopic loop.
         auto f = [&](const std::vector<std::size_t> & positions,
             const std::size_t & index) -> void {
             int key = img.img_array(index);
@@ -192,11 +194,11 @@ namespace eye {
             }
         };
 
-        std::vector<std::size_t> shape;
+        std::vector<std::size_t> loop_shape;
         for (std::size_t i = 0; i < img.num_dims; i++) {
-            shape.push_back(dim_size);
+            loop_shape.push_back(dim_size);
         }
-        eye::polytopic_loop(shape, f, start_index);
+        eye::polytopic_loop(loop_shape, f, start_index);
 
         return mode_map[-1];
     }
@@ -220,6 +222,7 @@ namespace eye {
         }
         outfile << "]" << std::endl;
 
+        // Define logic to be run inside polytopic loop.
         auto f = [&](const std::vector<std::size_t> & positions,
             const std::size_t & index) -> void {
             // Print value position.
