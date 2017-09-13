@@ -1,3 +1,4 @@
+#include <chrono>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -9,8 +10,11 @@
 #include <eye/utility.hpp>
 
 typedef andres::Marray<int> image_array;
+using namespace std::chrono;
 
 int main() {
+    high_resolution_clock::time_point start = high_resolution_clock::now();
+
     std::string timestamp = eye::get_timestamp();
 
     std::shared_ptr<eye::Image> img = eye::generate_randomized_image(eye::DIM);
@@ -25,6 +29,12 @@ int main() {
             "d_img_l" + std::to_string(i) + ".csv";
         eye::write_to_file(ds_img, filename);
     }
+
+    high_resolution_clock::time_point stop = high_resolution_clock::now();
+
+    auto elapsed = duration_cast<milliseconds>(stop - start).count();
+
+    std::cout << "TOTAL ELAPSED TIME: " << elapsed << "ms" << std::endl;
 
     return 0;
 }
