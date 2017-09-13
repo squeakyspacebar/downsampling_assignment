@@ -15,13 +15,16 @@ int main() {
 
     std::string timestamp = eye::get_timestamp();
 
-    // Generate an image with randomized dimensions and values.
-    eye::Image img(eye::generate_randomized_image(IMAGE_DIMS));
-
-    high_resolution_clock::time_point img_t1 = high_resolution_clock::now();
+    // Generate a square image with randomized values.
+    std::size_t shape[] = { 512, 512 };
+    image_array img_array(shape, shape + IMAGE_DIMS);
+    eye::Image img(img_array);
+    eye::fill_image(img);
 
     // Find the power of 2 of the smallest dimension of the image.
     std::size_t min_l = eye::find_min_l(img);
+
+    high_resolution_clock::time_point img_t1 = high_resolution_clock::now();
 
     // For each power of 2 from 1 to min_l, calculate the downsampled image and
     // write it to file.
@@ -35,7 +38,6 @@ int main() {
         auto duration = duration_cast<milliseconds>(t2 - t1).count();
         std::cout << "ELAPSED TIME FOR RUN: " << duration << "ms" << std::endl;
     }
-
     high_resolution_clock::time_point img_t2 = high_resolution_clock::now();
     auto duration = duration_cast<milliseconds>(img_t2 - img_t1).count();
     std::cout << "ELAPSED TIME FOR IMAGE: " << duration << "ms" << std::endl;

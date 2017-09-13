@@ -31,6 +31,10 @@ int main() {
         std::cout << "Current downsampling level (" << i << ")" << std::endl;
         eye::Image ds_img(eye::process_image(img, i));
 
+        std::string filename = timestamp + "_ds_" + std::to_string(IMAGE_DIMS) +
+            "d_img_l" + std::to_string(i) + ".csv";
+        eye::write_to_file(ds_img, filename);
+
         high_resolution_clock::time_point t2 = high_resolution_clock::now();
         auto duration = duration_cast<milliseconds>(t2 - t1).count();
         std::cout << "ELAPSED TIME FOR RUN: " << duration << "ms" << std::endl;
