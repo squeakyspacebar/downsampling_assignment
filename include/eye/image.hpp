@@ -18,7 +18,7 @@ namespace eye {
         std::size_t num_dims;
         std::vector<std::size_t> shape;
 
-        Image(image_array & img_array) {
+        Image(image_array img_array) {
             this->img_array = img_array;
             this->num_dims = this->img_array.dimension();
 
@@ -28,9 +28,6 @@ namespace eye {
                 this->shape[i] = this->img_array.shape(i);
             }
         }
-
-        private:
-
     };
 }
 #endif
