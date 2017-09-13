@@ -23,8 +23,6 @@ namespace eye {
     std::mutex write_mutex;
 
     std::shared_ptr<Image> generate_randomized_image(const std::size_t dims) {
-        std::cout << "generate_randomized_image() entered" << std::endl;
-
         // Initialize random number generation.
         std::random_device device;
         std::minstd_rand generator(device());
@@ -32,6 +30,7 @@ namespace eye {
         // Generate randomized dimensionality for the image.
         std::uniform_int_distribution<int> pow_dist(1, 8);
         std::size_t * shape = new std::size_t[dims];
+        std::cout << "Generated image dimensions: [";
         for (std::size_t i = 0; i < dims; i++) {
             std::size_t dim_size = eye::pow(2, pow_dist(generator));
             shape[i] = dim_size;
@@ -40,14 +39,11 @@ namespace eye {
                 std::cout << ",";
             }
         }
+        std::cout << "]" << std::endl;
 
         // Initialize blank image.
         image_array img_array(shape, shape + dims);
         delete [] shape;
-
-        // Bookkeeping for determining mode of generated image.
-        std::map<int, int> mode_map;
-        mode_map.insert(std::pair<int, int>(-1, -1));
 
         // Generates random values for each element of the image.
         std::uniform_int_distribution<int> val_dist(0, 2);
@@ -55,39 +51,12 @@ namespace eye {
         for (std::size_t i = 0; i < img_size; i++) {
             int key = val_dist(generator);
             img_array(i) = key;
-
-            // Keeps a count of the values encountered to determine mode.
-            if (mode_map.count(key) > 0) {
-                mode_map[key]++;
-            } else {
-                mode_map.insert(std::pair<int, int>(key, 1));
-            }
-
-            // Update which key represents the mode.
-            if (mode_map[key] > mode_map[mode_map[-1]]) {
-                mode_map[-1] = key;
-            }
         }
-
-        // Output diagnostic information.
-        std::cout << "Mode of generated image is " << mode_map[-1] << " with " <<
-            mode_map[mode_map[-1]] << " instances out of " << img_array.size() << std::endl;
-        // Output each number encountered with its frequency.
-        for (const auto & kv : mode_map) {
-            if (kv.first < 0) {
-                continue;
-            }
-            std::cout << kv.first << ": " << kv.second << " instance(s)" << std::endl;
-        }
-
-        std::cout << "generate_randomized_image() exited" << std::endl;
 
         return std::make_shared<Image>(Image(img_array));
     }
 
     void fill_image_array(const std::shared_ptr<Image> img) {
-        std::cout << "fill_image() entered" << std::endl;
-
         // Initialize random number generation.
         //std::random_device device;
         long int seed = std::chrono::high_resolution_clock::now()
@@ -101,11 +70,11 @@ namespace eye {
             int key = value_dist(generator);
             img->img_array(i) = key;
         }
-
-        std::cout << "fill_image() exited" << std::endl;
     }
 
-
+    /**
+     * Calculates the power of 2 of the smallest dimension in the image.
+     */
     std::size_t find_min_l(const std::shared_ptr<Image> img) {
         std::size_t min_l = SIZE_MAX;
 
@@ -119,18 +88,14 @@ namespace eye {
         return min_l;
     }
 
+    /**
+     * Administrates mode calculations and returns the downsampled image.
+     */
     std::shared_ptr<Image> process_image(const std::shared_ptr<Image> img,
             const std::size_t l) {
-        std::cout << "process_image() entered" << std::endl;
-
         std::size_t dim_size = eye::pow(2, l);
-        std::cout << "dim_size: " << dim_size << std::endl;
 
-        for (std::size_t i = 0; i < img->num_dims; i++) {
-            std::cout << "DIM(" << img->shape[i] << ")" << std::endl;
-        }
-
-        std::cout << "Calculating indices..." << std::endl;
+        std::cout << "Calculating window starting indices..." << std::endl;
         std::vector<std::size_t> starting_indices;
         auto f = [&](const std::vector<std::size_t> & positions,
             const std::size_t index) -> void {
@@ -141,7 +106,7 @@ namespace eye {
         // Create array to hold the values of the downsampled image.
         std::shared_ptr<Image> ds_img = create_reduced_image_array(img, dim_size);
 
-        std::cout << "Number of tasks: " << starting_indices.size() << std::endl;
+        std::cout << "Number of subsections: " << starting_indices.size() << std::endl;
 
         eye::ThreadPool tm(MAX_WORK_THREADS);
         std::vector<boost::future<void>> futures;
@@ -165,8 +130,6 @@ namespace eye {
         boost::wait_for_all(futures.begin(), futures.end());
         tm.stop();
 
-        std::cout << "process_image() exited" << std::endl;
-
         return ds_img;
     }
 
@@ -176,8 +139,6 @@ namespace eye {
     std::shared_ptr<Image> create_reduced_image_array(
             const std::shared_ptr<Image> img,
             const std::size_t dim_size) {
-        std::cout << "create_reduced_image_array() entered" << std::endl;
-
         // Get reduced dimensions.
         std::vector<std::size_t> reduced_dims;
         for (std::size_t i = 0; i < img->num_dims; i++) {
@@ -200,15 +161,21 @@ namespace eye {
         image_array reduced_img_array(reduced_shape, reduced_shape + num_reduced_dims);
         delete [] reduced_shape;
 
+        std::cout << "Reduced image dimensions: [";
         for (std::size_t i = 0; i < num_reduced_dims; i++) {
-            std::cout << "Dim(" << reduced_img_array.shape(i) << ")" << std::endl;
+            std::cout << reduced_img_array.shape(i);
+            if (i < (num_reduced_dims - 1)) {
+                std::cout << ",";
+            }
         }
-
-        std::cout << "create_reduced_image_array() exited" << std::endl;
+        std::cout << "]" << std::endl;
 
         return std::make_shared<Image>(Image(reduced_img_array));
     }
 
+    /**
+     * Calculates the mode of a specific subsection of the given image.
+     */
     int find_mode(const std::shared_ptr<Image> img,
             const std::size_t l,
             const std::size_t start_index) {
@@ -246,8 +213,6 @@ namespace eye {
 
     void write_to_file(const std::shared_ptr<Image> img,
             const std::string & filename) {
-        std::cout << "write_to_file() entered" << std::endl;
-
         std::ofstream outfile;
         outfile.open(filename);
 

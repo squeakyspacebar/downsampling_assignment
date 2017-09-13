@@ -13,17 +13,16 @@ typedef andres::Marray<int> image_array;
 int main() {
     std::string timestamp = eye::get_timestamp();
 
-    std::shared_ptr<eye::Image> img = eye::generate_randomized_image();
+    std::shared_ptr<eye::Image> img = eye::generate_randomized_image(eye::DIM);
 
     std::size_t min_l = eye::find_min_l(img);
-    std::cout << "Minimum l: " << min_l << std::endl;
 
-    for (std::size_t l = 1; l <= min_l; l++) {
-        std::cout << "Current downsampling level (" << l << ")" << std::endl;
-        std::shared_ptr<eye::Image> ds_img = eye::process_image(img, l);
+    for (std::size_t i = 1; i <= min_l; i++) {
+        std::cout << "Current downsampling level (" << i << ")" << std::endl;
+        std::shared_ptr<eye::Image> ds_img = eye::process_image(img, i);
 
         std::string filename = timestamp + "_ds_" + std::to_string(eye::DIM) +
-            "d_img_l" + std::to_string(l) + ".csv";
+            "d_img_l" + std::to_string(i) + ".csv";
         eye::write_to_file(ds_img, filename);
     }
 
