@@ -114,14 +114,14 @@ namespace eye {
         std::size_t num_indices = starting_indices.size();
         for (std::size_t i = 0; i < num_indices; i++) {
             // Get mode of image section.
-            auto f1 = tm.add_task(find_mode, std::ref(img), dim_size,
+            auto f1 = tm.queue_task(find_mode, std::ref(img), dim_size,
                 starting_indices[i]);
 
             // Define future continuations to write results to downsampled image
             // asynchronously.
             auto f2 = f1.then([&tm, &ds_img, i](boost::future<int> f) {
                 int mode = f.get();
-                tm.add_task(write_result_to_image, std::ref(ds_img), i, mode);
+                tm.queue_task(write_result_to_image, std::ref(ds_img), i, mode);
             });
 
             futures.push_back(std::move(f2));
