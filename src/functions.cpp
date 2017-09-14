@@ -77,7 +77,7 @@ namespace eye {
     /**
      * Calculates the power of 2 of the smallest dimension in the image.
      */
-    std::size_t find_min_l(const Image img) {
+    std::size_t find_min_l(const Image & img) {
         std::size_t min_l = SIZE_MAX;
 
         for (std::size_t i = 0; i < img.num_dims; i++) {
@@ -93,8 +93,7 @@ namespace eye {
     /**
      * Administrates mode calculations and returns the downsampled image.
      */
-    Image process_image(const Image img,
-            const std::size_t l) {
+    Image process_image(const Image & img, const std::size_t l) {
         std::size_t dim_size = eye::pow(2, l);
 
         // Define logic to be run inside polytopic loop.
@@ -138,9 +137,7 @@ namespace eye {
     /**
      * Creates a new Image object to hold the downsampled image values.
      */
-    Image create_reduced_image(
-            const Image img,
-            const std::size_t dim_size) {
+    Image create_reduced_image(const Image & img, const std::size_t dim_size) {
         // Get reduced dimensions.
         std::vector<std::size_t> reduced_dims;
         for (std::size_t i = 0; i < img.num_dims; i++) {
@@ -169,8 +166,7 @@ namespace eye {
     /**
      * Calculates the mode of a specific subsection of the given image.
      */
-    int find_mode(const Image img,
-            const std::size_t dim_size,
+    int find_mode(const Image & img, const std::size_t dim_size,
             const std::size_t start_index) {
         // Bookkeeping for determining mode of processing window.
         std::map<int, int> mode_map;
@@ -208,8 +204,7 @@ namespace eye {
         img.img_array(index) = mode;
     }
 
-    void write_to_file(const Image img,
-            const std::string & filename) {
+    void write_to_file(const Image & img, const std::string & filename) {
         std::ofstream outfile;
         outfile.open(filename);
 
