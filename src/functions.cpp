@@ -108,7 +108,7 @@ namespace eye {
         Image ds_img = create_reduced_image(img, dim_size);
 
         eye::ThreadPool tm(MAX_WORK_THREADS);
-        std::vector<boost::future<void>> futures;
+        std::vector<boost::future<int>> futures;
 
         // Kickoff tasks to find the mode of each processing window.
         std::size_t num_indices = starting_indices.size();
@@ -117,19 +117,16 @@ namespace eye {
             auto f1 = tm.queue_task(find_mode, std::ref(img), dim_size,
                 starting_indices[i]);
 
-            // Define future continuations to write results to downsampled image
-            // asynchronously.
-            auto f2 = f1.then([&tm, &ds_img, i](boost::future<int> f) {
-                int mode = f.get();
-                tm.queue_task(write_result_to_image, std::ref(ds_img), i, mode);
-            });
-
-            futures.push_back(std::move(f2));
+            futures.push_back(std::move(f1));
         }
 
-        // Wait for all futures and tasks to return.
-        boost::wait_for_all(futures.begin(), futures.end());
+        // Wait for all tasks to complete.
         tm.stop();
+
+        std::size_t num_futures = futures.size();
+        for (std::size_t i = 0; i < num_futures; i++) {
+            write_result_to_image(std::ref(ds_img), i, futures[i].get());
+        }
 
         return ds_img;
     }
