@@ -16,7 +16,7 @@ int main() {
     std::string timestamp = eye::get_timestamp();
 
     // Generate a square image with randomized values.
-    std::size_t shape[] = { 512, 512 };
+    std::size_t shape[] = { 8, 8 };
     image_array img_array(shape, shape + IMAGE_DIMS);
     eye::Image img(img_array);
     eye::fill_image(img);
