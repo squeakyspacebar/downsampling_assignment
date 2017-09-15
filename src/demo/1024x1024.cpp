@@ -14,15 +14,17 @@ int main() {
     std::string timestamp = eye::get_timestamp();
 
     // Generate a square image with randomized values.
-    std::size_t shape[] = { 512, 512 };
+    std::size_t shape[] = { 1024, 1024 };
     image_array img_array(shape, shape + IMAGE_DIMS);
     eye::Image img(img_array);
     eye::fill_image(img);
 
+    // Create container to hold images.
     std::vector<eye::Image> ds_images;
 
     high_resolution_clock::time_point img_t1 = high_resolution_clock::now();
 
+    // Downsample images and retrieve them.
     ds_images = eye::process_image(img);
 
     high_resolution_clock::time_point img_t2 = high_resolution_clock::now();

@@ -1,9 +1,7 @@
 #include <chrono>
 #include <iostream>
 #include <string>
-#include <eye/constants.hpp>
 #include <eye/functions.hpp>
-#include <eye/math.hpp>
 #include <eye/image.hpp>
 #include <eye/utility.hpp>
 
@@ -18,31 +16,30 @@ int main() {
     // Generate an image with randomized dimensions and values.
     eye::Image img(eye::generate_randomized_image(IMAGE_DIMS));
 
+    // Create container to hold images.
+    std::vector<eye::Image> ds_images;
+
     high_resolution_clock::time_point img_t1 = high_resolution_clock::now();
 
-    // Find the power of 2 of the smallest dimension of the image.
-    std::size_t min_l = eye::find_min_l(img);
-
-    // For each power of 2 from 1 to min_l, calculate the downsampled image and
-    // write it to file.
-    for (std::size_t i = 1; i <= min_l; i++) {
-        high_resolution_clock::time_point t1 = high_resolution_clock::now();
-
-        std::cout << "Current downsampling level (" << i << ")" << std::endl;
-        eye::Image ds_img(eye::process_image(img, i));
-
-        std::string filename = timestamp + "_ds_" + std::to_string(IMAGE_DIMS) +
-            "d_img_l" + std::to_string(i) + ".csv";
-        eye::write_to_file(ds_img, filename);
-
-        high_resolution_clock::time_point t2 = high_resolution_clock::now();
-        auto duration = duration_cast<milliseconds>(t2 - t1).count();
-        std::cout << "ELAPSED TIME FOR RUN: " << duration << "ms" << std::endl;
-    }
+    // Downsample images and retrieve them.
+    ds_images = eye::process_image(img);
 
     high_resolution_clock::time_point img_t2 = high_resolution_clock::now();
     auto duration = duration_cast<milliseconds>(img_t2 - img_t1).count();
-    std::cout << "ELAPSED TIME FOR IMAGE: " << duration << "ms" << std::endl;
+    std::cout << "ELAPSED TIME TO PROCESS IMAGE: " << duration << "ms" << std::endl;
+
+    // Write original image to file.
+    std::string filename = timestamp + "_ds_" + std::to_string(IMAGE_DIMS) +
+        "d_img_orig.csv";
+    eye::write_to_file(img, filename);
+
+    // Write downsampled images to file.
+    std::size_t num_images = ds_images.size();
+    for (std::size_t i = 0; i < num_images; i++) {
+        std::string filename = timestamp + "_ds_" + std::to_string(IMAGE_DIMS) +
+            "d_img_l" + std::to_string(i + 1) + ".csv";
+        eye::write_to_file(ds_images[i], filename);
+    }
 
     high_resolution_clock::time_point stop = high_resolution_clock::now();
     auto elapsed = duration_cast<milliseconds>(stop - start).count();
