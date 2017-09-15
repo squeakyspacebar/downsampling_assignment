@@ -1,15 +1,14 @@
 #ifndef THREAD_POOL_HPP
 #define THREAD_POOL_HPP
-#define BOOST_THREAD_PROVIDES_FUTURE
 
 #include <condition_variable>
 #include <functional>
-#include <memory>
+#include <future>
+#include <mutex>
 #include <thread>
 #include <queue>
 #include <utility>
 #include <vector>
-#include <boost/thread/future.hpp>
 
 namespace eye {
     class ThreadPool {
@@ -17,7 +16,7 @@ namespace eye {
 
         void stop();
         template<typename F, typename... Args>
-        auto queue_task(F&& f, Args&&... args) -> boost::future<decltype(f(args...))>;
+        auto queue_task(F&& f, Args&&... args) -> std::future<decltype(f(args...))>;
         ThreadPool(const std::size_t max_threads);
         ~ThreadPool();
 
@@ -32,7 +31,7 @@ namespace eye {
         void worker();
     };
 
-    void ThreadPool::stop() {
+    inline void ThreadPool::stop() {
         {
             // Signal all threads to wrap up.
             std::lock_guard<std::mutex> lock(this->queue_mutex);
@@ -47,8 +46,8 @@ namespace eye {
     }
 
     template<typename F, typename... Args>
-    auto ThreadPool::queue_task(F&& f, Args&&... args)
-            -> boost::future<decltype(f(args...))> {
+    inline auto ThreadPool::queue_task(F&& f, Args&&... args)
+            -> std::future<decltype(f(args...))> {
         {
             std::lock_guard<std::mutex> lock(this->queue_mutex);
             if (this->shutdown) {
@@ -59,10 +58,10 @@ namespace eye {
 
         using ReturnType = decltype(f(args...));
 
-        auto task = std::make_shared<boost::packaged_task<ReturnType>>(
+        auto task = std::make_shared<std::packaged_task<ReturnType()>>(
             std::bind(std::forward<F>(f), std::forward<Args>(args)...));
 
-        boost::future<ReturnType> result = task->get_future();
+        std::future<ReturnType> result = task->get_future();
 
         {
             std::lock_guard<std::mutex> lock(this->queue_mutex);
@@ -74,7 +73,7 @@ namespace eye {
         return result;
     }
 
-    ThreadPool::ThreadPool(const std::size_t max_threads) : shutdown(false) {
+    inline ThreadPool::ThreadPool(const std::size_t max_threads) : shutdown(false) {
         // Spin up worker threads.
         this->workers.reserve(max_threads);
         for (std::size_t i = 0; i < max_threads; i++) {
@@ -83,13 +82,13 @@ namespace eye {
         }
     }
 
-    ThreadPool::~ThreadPool() {
+    inline ThreadPool::~ThreadPool() {
         if (!this->shutdown) {
             this->stop();
         }
     }
 
-    void ThreadPool::worker() {
+    inline void ThreadPool::worker() {
         std::function<void(void)> task;
 
         while (1) {

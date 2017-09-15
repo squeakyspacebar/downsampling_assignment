@@ -1,17 +1,12 @@
-#define BOOST_THREAD_PROVIDES_FUTURE
-#define BOOST_THREAD_PROVIDES_FUTURE_CONTINUATION
-
 #include <chrono>
 #include <iostream>
 #include <fstream>
 #include <functional>
-#include <memory>
 #include <mutex>
 #include <random>
 #include <string>
 #include <thread>
 #include <andres/marray.hxx>
-#include <boost/thread/future.hpp>
 #include <eye/constants.hpp>
 #include <eye/functions.hpp>
 #include <eye/image.hpp>
@@ -22,56 +17,69 @@
 typedef andres::Marray<int> image_array;
 
 namespace eye {
-    std::mutex write_mutex;
+    /**
+     * Takes an image and computes a series of downsampled images.
+     */
+    std::vector<eye::Image> process_image(const Image & img) {
+        // Find the power of 2 of the smallest dimension of the image.
+        std::size_t min_l = eye::find_min_l(img);
 
-    Image generate_randomized_image(const std::size_t dims) {
-        // Initialize random number generation.
-        long int seed = std::chrono::high_resolution_clock::now()
-            .time_since_epoch().count();
-        std::minstd_rand generator(seed);
+        eye::ThreadPool tp(eye::MAX_WORK_THREADS);
 
-        // Generate randomized dimensionality for the image.
-        std::uniform_int_distribution<int> pow_dist(1, 8);
-        std::size_t * shape = new std::size_t[dims];
-        std::cout << "Generated image dimensions: [";
-        for (std::size_t i = 0; i < dims; i++) {
-            std::size_t dim_size = eye::pow(2, pow_dist(generator));
-            shape[i] = dim_size;
-            std::cout << shape[i];
-            if (i < (dims - 1)) {
-                std::cout << ",";
-            }
-        }
-        std::cout << "]" << std::endl;
+        std::vector<std::future<eye::Image>> futures;
 
-        // Initialize blank image.
-        image_array img_array(shape, shape + dims);
-        delete [] shape;
-
-        // Generates random values for each element of the image.
-        std::uniform_int_distribution<int> val_dist(0, 2);
-        std::size_t img_size = img_array.size();
-        for (std::size_t i = 0; i < img_size; i++) {
-            int key = val_dist(generator);
-            img_array(i) = key;
+        // For each power of 2 from 1 to min_l, compute the downsampled image.
+        for (std::size_t i = 1; i <= min_l; i++) {
+            futures.push_back(tp.queue_task(eye::downsample_image,
+                std::ref(img), i));
         }
 
-        return Image(img_array);
+        // Wait for all downsampling tasks to complete.
+        tp.stop();
+
+        // Grab images for return.
+        std::vector<eye::Image> ds_images;
+        for (auto & future : futures) {
+            ds_images.push_back(future.get());
+        }
+
+        return ds_images;
     }
 
-    void fill_image(Image & img) {
-        // Initialize random number generation.
-        long int seed = std::chrono::high_resolution_clock::now()
-            .time_since_epoch().count();
-        std::minstd_rand generator(seed);
+    void write_to_file(const Image & img, const std::string & filename) {
+        std::ofstream outfile;
+        outfile.open(filename);
 
-        // Generates random values for each element of the image.
-        std::uniform_int_distribution<int> value_dist(0, 2);
-        std::size_t img_elements = img.img_array.size();
-        for (std::size_t i = 0; i < img_elements; i++) {
-            int key = value_dist(generator);
-            img.img_array(i) = key;
+        outfile << "[";
+        for (std::size_t i = 0; i < img.num_dims; i++) {
+            outfile << img.shape[i];
+            if (i < (img.num_dims - 1)) {
+                outfile << ",";
+            }
         }
+        outfile << "]" << std::endl;
+
+        // Define logic to be run inside polytopic loop.
+        auto f = [&](const std::vector<std::size_t> & positions,
+            const std::size_t & index) -> void {
+            // Print value position.
+            outfile << "<";
+            for (std::size_t i = 0; i < img.num_dims; i++) {
+                outfile << positions[i];
+                if (i < (img.num_dims - 1)) {
+                    outfile << ",";
+                }
+            }
+            outfile << ">,";
+            // Print value at position.
+            outfile << img.img_array(index) << std::endl;
+        };
+
+        // Write to file.
+        eye::polytopic_loop(img.shape, f);
+
+        outfile.close();
+        std::cout << "Wrote output to " << filename << std::endl;
     }
 
     /**
@@ -90,13 +98,61 @@ namespace eye {
         return min_l;
     }
 
+    Image generate_randomized_image(const std::size_t dims) {
+        // Initialize random number generation.
+        long int seed = std::chrono::high_resolution_clock::now()
+            .time_since_epoch().count();
+        std::minstd_rand generator(seed);
+
+        // Generate random dimensionality for the image.
+        std::uniform_int_distribution<int> pow_dist(1, 8);
+        std::size_t * shape = new std::size_t[dims];
+        std::cout << "Generated image dimensions: [";
+        for (std::size_t i = 0; i < dims; i++) {
+            std::size_t dim_size = eye::pow(2, pow_dist(generator));
+            shape[i] = dim_size;
+            std::cout << shape[i];
+            if (i < (dims - 1)) {
+                std::cout << ",";
+            }
+        }
+        std::cout << "]" << std::endl;
+
+        Image img(image_array(shape, shape + dims));
+        delete [] shape;
+        eye::fill_image(img);
+
+        return img;
+    }
+
+    /**
+     * Fills an image with random values.
+     */
+    void fill_image(Image & img) {
+        // Initialize random number generation.
+        long int seed = std::chrono::high_resolution_clock::now()
+            .time_since_epoch().count();
+        std::minstd_rand generator(seed);
+
+        // Generates random values for each element of the image.
+        std::uniform_int_distribution<int> value_dist(0, 4);
+        std::size_t img_elements = img.img_array.size();
+        for (std::size_t i = 0; i < img_elements; i++) {
+            int key = value_dist(generator);
+            img.img_array(i) = key;
+        }
+    }
+
     /**
      * Administrates mode calculations and returns the downsampled image.
      */
-    Image process_image(const Image & img, const std::size_t l) {
+    Image downsample_image(const Image & img, const std::size_t l) {
         std::size_t dim_size = eye::pow(2, l);
 
-        // Define logic to be run inside polytopic loop.
+        Image ds_img = create_reduced_image(img, dim_size);
+        std::mutex write_mutex;
+
+        // Determine indices of each image section to process. 
         std::vector<std::size_t> starting_indices;
         auto f = [&](const std::vector<std::size_t> & positions,
             const std::size_t index) -> void {
@@ -104,15 +160,13 @@ namespace eye {
         };
         eye::polytopic_loop(img.shape, f, 0, dim_size);
 
-        // Create array to hold the values of the downsampled image.
-        Image ds_img = create_reduced_image(img, dim_size);
-
-        // Kickoff tasks to find the mode of each processing window.
         std::size_t num_indices = starting_indices.size();
         for (std::size_t i = 0; i < num_indices; i++) {
-            // Get mode of image section.
             int mode = find_mode(img, dim_size, starting_indices[i]);
-            ds_img.img_array(i) = mode;
+            {
+                std::lock_guard<std::mutex> write_guard(write_mutex);
+                ds_img.img_array(i) = mode;
+            }
         }
 
         return ds_img;
@@ -181,46 +235,5 @@ namespace eye {
         eye::polytopic_loop(loop_shape, f, start_index);
 
         return mode_map[-1];
-    }
-
-    void write_result_to_image(Image & img, const int index, const int mode) {
-        std::lock_guard<std::mutex> img_write_guard(write_mutex);
-        img.img_array(index) = mode;
-    }
-
-    void write_to_file(const Image & img, const std::string & filename) {
-        std::ofstream outfile;
-        outfile.open(filename);
-
-        outfile << "[";
-        for (std::size_t i = 0; i < img.num_dims; i++) {
-            outfile << img.shape[i];
-            if (i < (img.num_dims - 1)) {
-                outfile << ",";
-            }
-        }
-        outfile << "]" << std::endl;
-
-        // Define logic to be run inside polytopic loop.
-        auto f = [&](const std::vector<std::size_t> & positions,
-            const std::size_t & index) -> void {
-            // Print value position.
-            outfile << "<";
-            for (std::size_t i = 0; i < img.num_dims; i++) {
-                outfile << positions[i];
-                if (i < (img.num_dims - 1)) {
-                    outfile << ",";
-                }
-            }
-            outfile << ">,";
-            // Print value at position.
-            outfile << img.img_array(index) << std::endl;
-        };
-
-        // Write to file.
-        eye::polytopic_loop(img.shape, f);
-
-        outfile.close();
-        std::cout << "Wrote output to " << filename << std::endl;
     }
 }
