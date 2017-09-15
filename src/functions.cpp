@@ -93,7 +93,7 @@ namespace eye {
     /**
      * Administrates mode calculations and returns the downsampled image.
      */
-    Image process_image(const Image & img, const std::size_t l) {
+    void process_image(const Image & img, Image & ds_img, const std::size_t l) {
         std::size_t dim_size = eye::pow(2, l);
 
         // Define logic to be run inside polytopic loop.
@@ -104,9 +104,6 @@ namespace eye {
         };
         eye::polytopic_loop(img.shape, f, 0, dim_size);
 
-        // Create array to hold the values of the downsampled image.
-        Image ds_img = create_reduced_image(img, dim_size);
-
         // Kickoff tasks to find the mode of each processing window.
         std::size_t num_indices = starting_indices.size();
         for (std::size_t i = 0; i < num_indices; i++) {
@@ -114,8 +111,6 @@ namespace eye {
             int mode = find_mode(img, dim_size, starting_indices[i]);
             ds_img.img_array(i) = mode;
         }
-
-        return ds_img;
     }
 
     /**
@@ -144,7 +139,7 @@ namespace eye {
         image_array reduced_img_array(reduced_shape, reduced_shape + num_reduced_dims);
         delete [] reduced_shape;
 
-        return Image(reduced_img_array);
+        return std::move(Image(reduced_img_array));
     }
 
     /**

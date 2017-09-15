@@ -3,13 +3,16 @@
 
 #include <memory>
 #include <string>
+#include <andres/marray.hxx>
 #include <eye/image.hpp>
+
+typedef andres::Marray<int> image_array;
 
 namespace eye {
     Image generate_randomized_image(const std::size_t dims);
     void fill_image(Image & img);
     std::size_t find_min_l(const Image & img);
-    Image process_image(const Image & img, const std::size_t l);
+    void process_image(const Image & img, Image & ds_img, const std::size_t l);
     Image create_reduced_image(const Image & img, const std::size_t dim_size);
     int find_mode(const Image & img, const std::size_t dim_size,
         const std::size_t start_index);

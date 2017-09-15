@@ -4,12 +4,12 @@
 
 #include <condition_variable>
 #include <functional>
-#include <memory>
 #include <thread>
 #include <queue>
 #include <utility>
 #include <vector>
 #include <boost/thread/future.hpp>
+#include <eye/image.hpp>
 
 namespace eye {
     class ThreadPool {
@@ -32,7 +32,7 @@ namespace eye {
         void worker();
     };
 
-    void ThreadPool::stop() {
+    inline void ThreadPool::stop() {
         {
             // Signal all threads to wrap up.
             std::lock_guard<std::mutex> lock(this->queue_mutex);
@@ -47,7 +47,7 @@ namespace eye {
     }
 
     template<typename F, typename... Args>
-    auto ThreadPool::queue_task(F&& f, Args&&... args)
+    inline auto ThreadPool::queue_task(F&& f, Args&&... args)
             -> boost::future<decltype(f(args...))> {
         {
             std::lock_guard<std::mutex> lock(this->queue_mutex);
@@ -74,7 +74,7 @@ namespace eye {
         return result;
     }
 
-    ThreadPool::ThreadPool(const std::size_t max_threads) : shutdown(false) {
+    inline ThreadPool::ThreadPool(const std::size_t max_threads) : shutdown(false) {
         // Spin up worker threads.
         this->workers.reserve(max_threads);
         for (std::size_t i = 0; i < max_threads; i++) {
@@ -83,13 +83,13 @@ namespace eye {
         }
     }
 
-    ThreadPool::~ThreadPool() {
+    inline ThreadPool::~ThreadPool() {
         if (!this->shutdown) {
             this->stop();
         }
     }
 
-    void ThreadPool::worker() {
+    inline void ThreadPool::worker() {
         std::function<void(void)> task;
 
         while (1) {
