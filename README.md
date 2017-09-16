@@ -16,7 +16,7 @@ Build example (from the project root directory):
 
 ```
 mkdir ./build
-g++ -I./include -I./path/to/boost -I./path/to/marray -L./path/to/boost/lib -std=c++14 -o build/rand_img.out src/demo/rand_img.cpp src/functions.cpp -lboost_system -lboost_thread -lpthread
+g++ -I./include -I./path/to/marray -std=c++14 -o build/rand_img_to_file.out src/demo/rand_img_to_file.cpp src/functions.cpp -lpthread
 ```
 **Note:** The only implementation file you have to compile currently is `src/functions.cpp`.
 
