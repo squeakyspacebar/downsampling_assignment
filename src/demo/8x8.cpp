@@ -9,13 +9,15 @@
 using namespace std::chrono;
 
 int main() {
-    const std::size_t IMAGE_DIMS = 2;
-
     high_resolution_clock::time_point start = high_resolution_clock::now();
 
+    // Determine shape of image to generate.
+    std::vector<int> shape_v = { 8, 8 };
+    std::size_t img_dims = shape_v.size();
+    int * shape = &shape_v[0];
+
     // Generate a square image with randomized values.
-    std::size_t shape[] = { 8, 8 };
-    image_array img_array(shape, shape + IMAGE_DIMS);
+    image_array img_array(shape, shape + img_dims);
     eye::Image img(img_array);
     eye::fill_image(img);
 
@@ -29,18 +31,19 @@ int main() {
 
     high_resolution_clock::time_point img_t2 = high_resolution_clock::now();
     auto duration = duration_cast<milliseconds>(img_t2 - img_t1).count();
-    std::cout << "ELAPSED TIME TO PROCESS IMAGE: " << duration << "ms" << std::endl;
+    std::cout << "ELAPSED TIME TO PROCESS IMAGE: " << duration << "ms" <<
+        std::endl;
 
     // Write original image to file.
-    std::string filename = "8_ds_" + std::to_string(IMAGE_DIMS) +
+    std::string filename = "8_ds_" + std::to_string(img_dims) +
         "d_img_orig.csv";
     eye::write_to_file(img, filename);
 
     // Write downsampled images to file.
     std::size_t num_images = ds_images.size();
     for (std::size_t i = 0; i < num_images; i++) {
-        std::string filename = "8_ds_" + std::to_string(IMAGE_DIMS) +
-            "d_img_l" + std::to_string(i + 1) + ".csv";
+        std::string filename = "8_ds_" + std::to_string(img_dims) + "d_img_l" +
+            std::to_string(i + 1) + ".csv";
         eye::write_to_file(ds_images[i], filename);
     }
 
