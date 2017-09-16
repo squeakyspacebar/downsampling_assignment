@@ -210,6 +210,7 @@ namespace eye {
             if (mode_map.count(key) > 0) {
                 mode_map[key]++;
             } else {
+                // Encountered a new unique number, add it to the map.
                 mode_map.insert(std::pair<image_data_t, std::size_t>(key, 1));
             }
 
