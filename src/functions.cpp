@@ -190,15 +190,9 @@ namespace eye {
             reduced_dims.push_back(1);
         }
 
-        // Convert shape data into array.
+        std::size_t * reduced_shape = &reduced_dims[0];
         std::size_t num_reduced_dims = reduced_dims.size();
-        std::size_t * reduced_shape = new size_t[num_reduced_dims];
-        for (std::size_t i = 0; i < num_reduced_dims; i++) {
-            reduced_shape[i] = reduced_dims[i];
-        }
-
         image_array reduced_img_array(reduced_shape, reduced_shape + num_reduced_dims);
-        delete [] reduced_shape;
 
         return Image(reduced_img_array);
     }
