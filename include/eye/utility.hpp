@@ -1,11 +1,7 @@
 #ifndef EYE_UTILITY_HPP
 #define EYE_UTILITY_HPP
 
-#include <sstream>
-#include <string>
 #include <vector>
-#include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/date_time/posix_time/posix_time_io.hpp>
 
 namespace eye {
     /**
@@ -54,21 +50,6 @@ namespace eye {
             // Reset place counter.
             place = 0;
         }
-    }
-
-    /**
-     * Retrieves the time as a formatted string.
-     */
-    inline std::string get_timestamp() {
-        boost::posix_time::ptime local_time =
-            boost::posix_time::second_clock::local_time();
-        boost::posix_time::time_facet *facet =
-            new boost::posix_time::time_facet("%Y%m%d%H%M%S");
-
-        std::basic_stringstream<char> ss;
-        ss.imbue(std::locale(ss.getloc(), facet));
-        ss << local_time;
-        return ss.str();
     }
 }
 #endif
