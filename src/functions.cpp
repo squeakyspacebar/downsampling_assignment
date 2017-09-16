@@ -151,22 +151,17 @@ namespace eye {
         Image ds_img = create_reduced_image(img, dim_size);
         std::mutex write_mutex;
 
-        // Determine indices of each image section to process. 
-        std::vector<std::size_t> starting_indices;
+        std::size_t ds_index = 0;
         auto f = [&](const std::vector<std::size_t> & positions,
             const std::size_t index) -> void {
-            starting_indices.push_back(index);
-        };
-        eye::polytopic_loop(img.shape, f, 0, dim_size);
-
-        std::size_t num_indices = starting_indices.size();
-        for (std::size_t i = 0; i < num_indices; i++) {
-            int mode = find_mode(img, dim_size, starting_indices[i]);
+            int mode = find_mode(img, dim_size, index);
             {
                 std::lock_guard<std::mutex> write_guard(write_mutex);
-                ds_img.img_array(i) = mode;
+                ds_img.img_array(ds_index) = mode;
+                ds_index++;
             }
-        }
+        };
+        eye::polytopic_loop(img.shape, f, 0, dim_size);
 
         return ds_img;
     }
