@@ -138,8 +138,7 @@ namespace eye {
         std::uniform_int_distribution<int> value_dist(0, 4);
         std::size_t img_elements = img.img_array.size();
         for (std::size_t i = 0; i < img_elements; i++) {
-            int key = value_dist(generator);
-            img.img_array(i) = key;
+            img.img_array(i) = value_dist(generator);
         }
     }
 
