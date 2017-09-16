@@ -1,6 +1,6 @@
 ## Introduction
 
-This project implements a library for reducing n-dimensional arrays of integers (where each dimension's length is a power of 2) through modal downsampling.
+This project implements a multithreaded library for reducing n-dimensional arrays of integers (where each dimension's length is a power of 2) through modal downsampling.
 
 ## Dependencies
 
