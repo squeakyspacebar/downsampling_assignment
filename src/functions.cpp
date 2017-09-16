@@ -82,22 +82,6 @@ namespace eye {
         std::cout << "Wrote output to " << filename << std::endl;
     }
 
-    /**
-     * Calculates the power of 2 of the smallest dimension in the image.
-     */
-    std::size_t find_min_l(const Image & img) {
-        std::size_t min_l = SIZE_MAX;
-
-        for (std::size_t i = 0; i < img.num_dims; i++) {
-            std::size_t dim = eye::log2(img.img_array.shape(i));
-            if (dim < min_l) {
-                min_l = dim;
-            }
-        }
-
-        return min_l;
-    }
-
     Image generate_randomized_image(const std::size_t dims) {
         // Initialize random number generation.
         long int seed = std::chrono::high_resolution_clock::now()
@@ -140,6 +124,22 @@ namespace eye {
         for (std::size_t i = 0; i < img_elements; i++) {
             img.img_array(i) = value_dist(generator);
         }
+    }
+
+    /**
+     * Calculates the power of 2 of the smallest dimension in the image.
+     */
+    std::size_t find_min_l(const Image & img) {
+        std::size_t min_l = SIZE_MAX;
+
+        for (std::size_t i = 0; i < img.num_dims; i++) {
+            std::size_t dim = eye::log2(img.img_array.shape(i));
+            if (dim < min_l) {
+                min_l = dim;
+            }
+        }
+
+        return min_l;
     }
 
     /**
