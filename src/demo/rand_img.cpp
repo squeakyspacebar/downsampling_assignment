@@ -6,10 +6,11 @@
 #include <eye/image.hpp>
 #include <eye/utility.hpp>
 
-const std::size_t IMAGE_DIMS = 2;
 using namespace std::chrono;
 
 int main() {
+    const std::size_t IMAGE_DIMS = 2;
+
     high_resolution_clock::time_point start = high_resolution_clock::now();
 
     // Generate an image with randomized dimensions and values.
