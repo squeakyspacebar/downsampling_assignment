@@ -176,7 +176,7 @@ namespace eye {
      * Creates a new Image object to hold the downsampled image values.
      */
     Image create_reduced_image(const Image & img, const std::size_t dim_size) {
-        // Get reduced dimensions.
+        // Reduce dimensions.
         std::vector<std::size_t> reduced_dims;
         for (std::size_t i = 0; i < img.num_dims; i++) {
             std::size_t reduced_dim_size = img.shape[i] / dim_size;
@@ -184,6 +184,8 @@ namespace eye {
                 reduced_dims.push_back(reduced_dim_size);
             }
         }
+        // If all of the dimensions are of length one, just collapse into a
+        // single dimension.
         if (reduced_dims.empty()) {
             reduced_dims.push_back(1);
         }
@@ -210,7 +212,6 @@ namespace eye {
         std::map<int, int> mode_map;
         mode_map.insert(std::pair<int, int>(-1, -1));
 
-        // Define logic to be run inside polytopic loop.
         auto f = [&](const std::vector<std::size_t> & positions,
             const std::size_t & index) -> void {
             int key = img.img_array(index);
@@ -228,6 +229,7 @@ namespace eye {
             }
         };
 
+        // Loop through processing window and count.
         std::vector<std::size_t> loop_shape;
         for (std::size_t i = 0; i < img.num_dims; i++) {
             loop_shape.push_back(dim_size);
