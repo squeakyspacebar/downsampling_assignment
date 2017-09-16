@@ -2,9 +2,7 @@
 #define EYE_IMAGE_HPP
 
 #include <vector>
-#include <andres/marray.hxx>
-
-typedef andres::Marray<int> image_array;
+#include <eye/common.hpp>
 
 namespace eye {
     /**

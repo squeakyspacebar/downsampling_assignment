@@ -1,6 +1,7 @@
 #include <chrono>
 #include <iostream>
 #include <string>
+#include <eye/common.hpp>
 #include <eye/functions.hpp>
 #include <eye/image.hpp>
 #include <eye/utility.hpp>

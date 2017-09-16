@@ -2,19 +2,19 @@
 #include <iostream>
 #include <fstream>
 #include <functional>
+#include <map>
 #include <mutex>
 #include <random>
 #include <string>
 #include <thread>
 #include <andres/marray.hxx>
+#include <eye/common.hpp>
 #include <eye/constants.hpp>
 #include <eye/functions.hpp>
 #include <eye/image.hpp>
 #include <eye/math.hpp>
 #include <eye/thread_pool.hpp>
 #include <eye/utility.hpp>
-
-typedef andres::Marray<int> image_array;
 
 namespace eye {
     /**
@@ -135,7 +135,7 @@ namespace eye {
         std::minstd_rand generator(seed);
 
         // Generates random values for each element of the image.
-        std::uniform_int_distribution<int> value_dist(0, 4);
+        std::uniform_int_distribution<image_data_t> value_dist(0, 4);
         std::size_t img_elements = img.img_array.size();
         for (std::size_t i = 0; i < img_elements; i++) {
             img.img_array(i) = value_dist(generator);
@@ -199,26 +199,28 @@ namespace eye {
     /**
      * Calculates the mode of a specific subsection of the given image.
      */
-    int find_mode(const Image & img, const std::size_t dim_size,
+    image_data_t find_mode(const Image & img, const std::size_t dim_size,
             const std::size_t start_index) {
         // Bookkeeping for determining mode of processing window.
-        std::map<int, int> mode_map;
-        mode_map.insert(std::pair<int, int>(-1, -1));
+        std::map<image_data_t, std::size_t> mode_map;
+        // Initialize so that the first item encountered will be set as mode.
+        mode_map.insert(std::pair<image_data_t, std::size_t>(0, 0));
+        image_data_t mode = 0;
 
         auto f = [&](const std::vector<std::size_t> & positions,
             const std::size_t & index) -> void {
-            int key = img.img_array(index);
+            image_data_t key = img.img_array(index);
 
             // Keep a count of the values encountered to determine mode.
             if (mode_map.count(key) > 0) {
                 mode_map[key]++;
             } else {
-                mode_map.insert(std::pair<int, int>(key, 1));
+                mode_map.insert(std::pair<image_data_t, std::size_t>(key, 1));
             }
 
             // Update the mode as we count.
-            if (mode_map[key] > mode_map[mode_map[-1]]) {
-                mode_map[-1] = key;
+            if (mode_map[key] > mode_map[mode]) {
+                mode = key;
             }
         };
 
@@ -229,6 +231,6 @@ namespace eye {
         }
         eye::polytopic_loop(loop_shape, f, start_index);
 
-        return mode_map[-1];
+        return mode;
     }
 }
