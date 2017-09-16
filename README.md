@@ -16,7 +16,7 @@ Build example (from the project root directory):
 
 ```
 mkdir ./build
-g++ -O3 -I./include -I./path/to/marray -std=c++14 -o build/rand_img_to_file.out src/demo/rand_img_to_file.cpp src/functions.cpp -lpthread
+g++ -O3 -I./include -I./path/to/marray -std=c++14 -o build/1024x1024.out src/demo/1024x1024.cpp src/functions.cpp -lpthread
 ```
 **Note:** The only implementation file you have to compile currently is `src/functions.cpp`.
 
