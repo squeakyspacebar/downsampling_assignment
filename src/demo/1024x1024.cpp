@@ -17,7 +17,7 @@ int main() {
     int * shape = &shape_v[0];
 
     // Generate a square image with randomized values.
-    image_array img_array(shape, shape + img_dims);
+    eye::image_array_t img_array(shape, shape + img_dims);
     eye::Image img(img_array);
     eye::fill_image(img);
 

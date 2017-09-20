@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <chrono>
 #include <iostream>
 #include <fstream>
@@ -19,30 +20,11 @@ namespace eye {
     /**
      * Takes an image and computes a series of downsampled images.
      */
-    std::vector<eye::Image> process_image(const Image & img) {
+    std::vector<Image> process_image(const Image & img) {
         // Find the power of 2 of the smallest dimension of the image.
-        std::size_t min_l = eye::find_min_l(img);
+        std::size_t max_l = find_max_l(img);
 
-        eye::ThreadPool tp(eye::MAX_WORK_THREADS);
-
-        std::vector<std::future<eye::Image>> futures;
-
-        // For each power of 2 from 1 to min_l, compute the downsampled image.
-        for (std::size_t i = 1; i <= min_l; i++) {
-            futures.push_back(tp.queue_task(eye::downsample_image,
-                std::ref(img), i));
-        }
-
-        // Wait for all downsampling tasks to complete.
-        tp.stop();
-
-        // Grab images for return.
-        std::vector<eye::Image> ds_images;
-        for (auto & future : futures) {
-            ds_images.push_back(future.get());
-        }
-
-        return ds_images;
+        return downsample_image(img, 1, max_l);
     }
 
     void write_to_file(const Image & img, const std::string & filename) {
@@ -75,7 +57,7 @@ namespace eye {
         };
 
         // Write to file.
-        eye::polytopic_loop(img.shape, f);
+        polytopic_loop(img.shape, img.shape, f);
 
         outfile.close();
         std::cout << "Wrote output to " << filename << std::endl;
@@ -101,9 +83,9 @@ namespace eye {
         }
         std::cout << "]" << std::endl;
 
-        Image img(image_array(shape, shape + dims));
+        Image img(image_array_t(shape, shape + dims));
         delete [] shape;
-        eye::fill_image(img);
+        fill_image(img);
 
         return img;
     }
@@ -128,39 +110,90 @@ namespace eye {
     /**
      * Calculates the power of 2 of the smallest dimension in the image.
      */
-    std::size_t find_min_l(const Image & img) {
-        std::size_t min_l = SIZE_MAX;
+    std::size_t find_max_l(const Image & img) {
+        std::size_t max_l = SIZE_MAX;
 
         for (std::size_t i = 0; i < img.num_dims; i++) {
             std::size_t dim = eye::log2(img.img_array.shape(i));
-            if (dim < min_l) {
-                min_l = dim;
+            if (dim < max_l) {
+                max_l = dim;
             }
         }
 
-        return min_l;
+        return max_l;
     }
 
     /**
      * Administrates mode calculations and returns the downsampled image.
      */
-    Image downsample_image(const Image & img, const std::size_t l) {
-        std::size_t dim_size = eye::pow(2, l);
+    std::vector<Image> downsample_image(const Image & img,
+            const std::size_t l,
+            const std::size_t max_l) {
+        std::size_t dim_size = 2;
 
         Image ds_img = create_reduced_image(img, dim_size);
-        std::mutex write_mutex;
+
+        std::size_t * mode_array_shape = &ds_img.shape[0];
+        andres::Marray<mode_map_t> mode_array(mode_array_shape,
+            mode_array_shape + ds_img.num_dims);
 
         std::size_t ds_index = 0;
         auto f = [&](const std::vector<std::size_t> & positions,
-            const std::size_t index) -> void {
-            int mode = find_mode(img, dim_size, index);
-            {
-                std::lock_guard<std::mutex> write_guard(write_mutex);
-                ds_img.img_array(ds_index) = mode;
-                ds_index++;
-            }
+            const std::size_t & index) {
+            mode_pair_t mode_pair = find_mode(std::ref(img), index);
+            mode_array(ds_index) = mode_pair.first;
+            ds_img.img_array(ds_index) = mode_pair.second;
+
+            ds_index++;
         };
-        eye::polytopic_loop(img.shape, f, 0, dim_size);
+        polytopic_loop(img.shape, img.shape, f, 0, dim_size);
+
+        std::vector<Image> ds_images;
+        if (l < max_l) {
+            ds_images.push_back(downsample_reduce(mode_array, ds_img, (l + 1),
+                max_l, ds_images));
+        }
+        ds_images.push_back(ds_img);
+
+        // Make image ordering more intuitive by converting to ascending level
+        // of downsampling.
+        std::reverse(ds_images.begin(), ds_images.end());
+
+        return ds_images;
+    }
+
+    /**
+     * 
+     */
+    Image downsample_reduce(const mode_array_t & prev_mode_array,
+            const Image & img,
+            const std::size_t l,
+            const std::size_t max_l,
+            std::vector<Image> & ds_images) {
+        std::size_t dim_size = 2;
+
+        Image ds_img = create_reduced_image(img, dim_size);
+
+        std::size_t * mode_array_shape = &ds_img.shape[0];
+        andres::Marray<mode_map_t> mode_array(mode_array_shape,
+            mode_array_shape + ds_img.num_dims);
+
+        std::size_t ds_index = 0;
+        auto f = [&](const std::vector<std::size_t> & positions,
+            const std::size_t index) {
+            mode_pair_t mode_pair = reduce_modes(std::ref(prev_mode_array),
+                index);
+            mode_array(ds_index) = mode_pair.first;
+            ds_img.img_array(ds_index) = mode_pair.second;
+            ds_index++;
+        };
+        polytopic_loop(img.shape, img.shape,
+            f, 0, dim_size);
+
+        if (l < max_l) {
+            ds_images.push_back(downsample_reduce(std::ref(mode_array), ds_img, (l + 1),
+                max_l, ds_images));
+        }
 
         return ds_img;
     }
@@ -185,7 +218,8 @@ namespace eye {
 
         std::size_t * reduced_shape = &reduced_dims[0];
         std::size_t num_reduced_dims = reduced_dims.size();
-        image_array reduced_img_array(reduced_shape, reduced_shape + num_reduced_dims);
+        image_array_t reduced_img_array(reduced_shape,
+            reduced_shape + num_reduced_dims);
 
         return Image(reduced_img_array);
     }
@@ -193,16 +227,16 @@ namespace eye {
     /**
      * Calculates the mode of a specific subsection of the given image.
      */
-    image_data_t find_mode(const Image & img, const std::size_t dim_size,
+    mode_pair_t find_mode(const Image & img,
             const std::size_t start_index) {
         // Bookkeeping for determining mode of processing window.
-        std::map<image_data_t, std::size_t> mode_map;
+        mode_map_t mode_map;
         // Initialize so that the first item encountered will be set as mode.
-        mode_map.insert(std::pair<image_data_t, std::size_t>(0, 0));
+        mode_map.insert(std::make_pair(0, 0));
         image_data_t mode = 0;
 
         auto f = [&](const std::vector<std::size_t> & positions,
-            const std::size_t & index) -> void {
+            const std::size_t & index) {
             image_data_t key = img.img_array(index);
 
             // Keep a count of the values encountered to determine mode.
@@ -210,7 +244,7 @@ namespace eye {
                 mode_map[key]++;
             } else {
                 // Encountered a new unique number, add it to the map.
-                mode_map.insert(std::pair<image_data_t, std::size_t>(key, 1));
+                mode_map.insert(std::make_pair(key, 1));
             }
 
             // Update the mode as we count.
@@ -219,13 +253,54 @@ namespace eye {
             }
         };
 
-        // Loop through processing window and count.
-        std::vector<std::size_t> loop_shape;
-        for (std::size_t i = 0; i < img.num_dims; i++) {
-            loop_shape.push_back(dim_size);
+        if (mode_map[0] == 0) {
+            mode_map.erase(0);
         }
-        eye::polytopic_loop(loop_shape, f, start_index);
 
-        return mode;
+        // Loop through processing window and count.
+        std::vector<std::size_t> loop_shape(img.num_dims, 2);
+        polytopic_loop(img.shape, loop_shape, f, start_index);
+
+        return std::make_pair(mode_map, mode);
+    }
+
+    mode_pair_t reduce_modes(const mode_array_t & mode_array,
+            const std::size_t start_index) {
+        std::vector<std::size_t> mode_array_shape;
+        for (std::size_t d = 0; d < mode_array.dimension(); d++) {
+            mode_array_shape.push_back(mode_array.shape(d));
+        }
+
+        mode_map_t reduced_mode_map;
+        // Initialize so that the first item encountered will be set as mode.
+        reduced_mode_map.insert(std::make_pair(0, 0));
+        image_data_t mode = 0;
+
+        auto f = [&](const std::vector<std::size_t> & positions,
+            const std::size_t & index) {
+            auto mode_map = mode_array(index);
+
+            for (auto const & kv : mode_map) {
+                // If key exists in both maps, add.
+                if (reduced_mode_map.count(kv.first) > 0) {
+                    reduced_mode_map[kv.first] += kv.second;
+                } else {
+                    reduced_mode_map.insert(std::make_pair(kv.first, kv.second));
+                }
+
+                if (reduced_mode_map[kv.first] > reduced_mode_map[mode]) {
+                    mode = kv.first;
+                }
+            }
+        };
+
+        std::vector<std::size_t> loop_shape(mode_array.dimension(), 2);
+        polytopic_loop(mode_array_shape, loop_shape, f, start_index);
+
+        if (reduced_mode_map[0] == 0) {
+            reduced_mode_map.erase(0);
+        }
+
+        return std::make_pair(reduced_mode_map, mode);
     }
 }

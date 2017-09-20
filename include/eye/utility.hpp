@@ -12,27 +12,26 @@ namespace eye {
      */
     template<typename F>
     inline void polytopic_loop(
-            const std::vector<std::size_t> & shape,
+            const std::vector<std::size_t> & data_shape,
+            const std::vector<std::size_t> & loop_shape,
             F f,
-            std::size_t index = 0,
-            std::size_t stride = 1) {
-        std::size_t num_dims = shape.size();
+            const std::size_t start_index = 0,
+            const std::size_t stride = 1) {
+        std::size_t index = start_index;
+        std::size_t num_dims = loop_shape.size();
         std::vector<std::size_t> positions(num_dims, 0);
         std::size_t place = 0;
-        bool overflow = false;
 
-        while (!overflow) {
+        while (true) {
             // Execute loop logic here. Not very elegant TBH.
             f(positions, index);
 
             // Update position.
             positions[0] += stride;
 
-            while (positions[place] >= shape[place]) {
-                if (place == num_dims - 1) {
-                    // Signal break out of outer loop.
-                    overflow = true;
-                    break;
+            while (positions[place] >= loop_shape[place]) {
+                if (place >= num_dims - 1) {
+                    return;
                 }
 
                 // Carry the one.
@@ -42,14 +41,28 @@ namespace eye {
             }
 
             // Calculate the new index.
-            index = positions[0];
+            index = start_index + positions[0];
             for (std::size_t i = 1; i < num_dims; i++) {
-                index += positions[i] * shape[i - 1];
+                index += positions[i] * data_shape[i - 1];
             }
 
             // Reset place counter.
             place = 0;
         }
+    }
+
+    inline std::size_t position_to_flat_index(
+            const std::vector<std::size_t> & shape,
+            const std::vector<std::size_t> & positions,
+            const std::size_t start_index = 0) {
+        std::size_t num_dims = shape.size();
+
+        std::size_t index = start_index + positions[0];
+        for (std::size_t i = 1; i < num_dims; i++) {
+            index += positions[i] * shape[i - 1];
+        }
+
+        return index;
     }
 }
 #endif
