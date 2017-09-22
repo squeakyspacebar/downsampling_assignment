@@ -143,26 +143,15 @@ namespace eye {
         Image ds_img = create_reduced_image(img, dim_size);
         mode_array_t mode_array(ds_img.img_array.size());
 
-        std::vector<std::future<mode_pair_t>> futures;
-
-        ThreadPool tp(MAX_WORK_THREADS);
-
+        std::size_t ds_index = 0;
         auto f = [&](const std::vector<std::size_t> & positions,
             const std::size_t & index) {
-            futures.push_back(tp.queue_task(find_mode, std::ref(img),
-                index));
-        };
-        polytopic_loop(img.shape, img.shape, f, 0, dim_size);
-
-        tp.stop();
-
-        std::size_t ds_index = 0;
-        for (auto & future : futures) {
-            mode_pair_t result_pair = future.get();
+            mode_pair_t result_pair = find_mode(std::ref(img), index);
             mode_array[ds_index] = result_pair.first;
             ds_img.img_array(ds_index) = result_pair.second;
             ds_index++;
-        }
+        };
+        polytopic_loop(img.shape, img.shape, f, 0, dim_size);
 
         return std::make_pair(ds_img, mode_array);
     }
@@ -180,26 +169,16 @@ namespace eye {
         Image ds_img = create_reduced_image(img, dim_size);
         mode_array_t mode_array(ds_img.img_array.size());
 
-        std::vector<std::future<mode_pair_t>> futures;
-
-        ThreadPool tp(MAX_WORK_THREADS);
-
-        auto f = [&](const std::vector<std::size_t> & positions,
-            const std::size_t index) {
-            futures.push_back(tp.queue_task(reduce_modes, std::ref(img),
-                std::ref(prev_mode_array), index));
-        };
-        polytopic_loop(img.shape, img.shape, f, 0, dim_size);
-
-        tp.stop();
-
         std::size_t ds_index = 0;
-        for (auto & future : futures) {
-            mode_pair_t result_pair = future.get();
+        auto f = [&](const std::vector<std::size_t> & positions,
+            const std::size_t & index) {
+            mode_pair_t result_pair = reduce_modes(std::ref(img),
+                std::ref(prev_mode_array), index);
             mode_array[ds_index] = result_pair.first;
             ds_img.img_array(ds_index) = result_pair.second;
             ds_index++;
-        }
+        };
+        polytopic_loop(img.shape, img.shape, f, 0, dim_size);
 
         return std::make_pair(ds_img, mode_array);
     }

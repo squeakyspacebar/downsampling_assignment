@@ -4,6 +4,6 @@
 #include <thread>
 
 namespace eye {
-    const unsigned int MAX_WORK_THREADS = std::thread::hardware_concurrency();
+    const unsigned int MAX_WORK_THREADS = 1; //std::thread::hardware_concurrency();
 }
 #endif
