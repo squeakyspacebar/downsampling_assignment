@@ -17,14 +17,5 @@ namespace eye {
 
         Image(image_array_t img_array);
     };
-
-    inline Image::Image(image_array_t img_array) {
-        this->img_array = img_array;
-        this->num_dims = this->img_array.dimension();
-        this->shape = std::vector<std::size_t>(this->num_dims);
-        for (std::size_t i = 0; i < this->num_dims; i++) {
-            this->shape[i] = img_array.shape(i);
-        }
-    }
 }
 #endif
