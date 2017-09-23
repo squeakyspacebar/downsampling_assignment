@@ -51,6 +51,15 @@ namespace eye {
         }
     }
 
+    template<typename F>
+    inline void polytopic_loop(
+            const std::vector<std::size_t> & loop_shape,
+            F f,
+            const std::size_t start_index = 0,
+            const std::size_t stride = 1) {
+        polytopic_loop(loop_shape, loop_shape, f, start_index, stride);
+    }
+
     inline std::size_t position_to_flat_index(
             const std::vector<std::size_t> & shape,
             const std::vector<std::size_t> & positions,

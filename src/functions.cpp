@@ -68,7 +68,7 @@ namespace eye {
         };
 
         // Write to file.
-        polytopic_loop(img.shape, img.shape, f);
+        polytopic_loop(img.shape, f);
 
         outfile.close();
         std::cout << "Wrote output to " << filename << std::endl;
@@ -152,7 +152,7 @@ namespace eye {
             futures.push_back(tp.queue_task(find_mode, std::ref(img),
                 index));
         };
-        polytopic_loop(img.shape, img.shape, f, 0, dim_size);
+        polytopic_loop(img.shape, f, 0, dim_size);
 
         tp.stop();
 
@@ -189,7 +189,7 @@ namespace eye {
             futures.push_back(tp.queue_task(reduce_modes, std::ref(img),
                 std::ref(prev_mode_array), index));
         };
-        polytopic_loop(img.shape, img.shape, f, 0, dim_size);
+        polytopic_loop(img.shape, f, 0, dim_size);
 
         tp.stop();
 
