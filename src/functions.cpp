@@ -85,7 +85,7 @@ namespace eye {
         std::size_t * shape = new std::size_t[dims];
         std::cout << "Generated image dimensions: [";
         for (std::size_t i = 0; i < dims; i++) {
-            std::size_t dim_size = eye::pow(2, pow_dist(generator));
+            std::size_t dim_size = 2 << pow_dist(generator);
             shape[i] = dim_size;
             std::cout << shape[i];
             if (i < (dims - 1)) {
